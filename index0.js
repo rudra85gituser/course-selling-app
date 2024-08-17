@@ -22,14 +22,20 @@ app.post('/admin/login' , (req , res)=>{
 
 //admin course
 //write logic for the admin to create course
-app.post('/admin/course' , req , res=>{
+app.post('/admin/courses' , req , res=>{
 
 });
 
 
 //admin course
 //write logic for the admin to edit course
-app.post('/admin/courseID' , req , res=>{
+app.put('/admin/courses/:courseID' , req , res=>{
+
+});
+
+//admin course
+//write logic to get all the courses
+app.get('/admin/courses' , req , res=>{
 
 });
 
@@ -50,13 +56,20 @@ app.post('/user/login' , (req , res)=>{
 
 //user course
 //write logic for the user to enroll in course
-app.post('/user/course' , req , res=>{
+app.get('/user/courses' , req , res=>{
+
+});
+
+
+//admin course
+//write logic for the user to see course
+app.post('/user/courses/:courseID' , req , res=>{
 
 });
 
 //admin course
-//write logic for the admin to see course
-app.post('/user/courseID' , req , res=>{
+//write logic for the user to see purchased  course
+app.get('/user/purchasedCourses' , req , res=>{
 
 });
 
