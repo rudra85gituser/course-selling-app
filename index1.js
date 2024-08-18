@@ -131,33 +131,85 @@ app.get('/admin/courses' ,  adminAuthentication ,(req , res)=>{
 //user routes/signup
 //logic to signup for user
 app.post('/user/signup' , (req , res)=>{
-
-
+    const user={
+        username: req.body.username,
+        password: req.body.password,
+        purchasedCourses: []
+    }
+USER.push(user);
+res.send.json({messege: "user created successfully"});
 });
+
+
+
 
 
 //user login 
 //write logic to log in for user
-app.post('/user/login' , (req , res)=>{
-
+app.post('/user/login' , userAuthentication , (req , res)=>{
+    res.send.json({messege: "user logged in successfully"});
 });
+
+
+
 
 //user course
 //write logic for the user to enroll in course
-app.get('/user/courses' , req , res=>{
+app.get('/user/courses' , userAuthentication ,  req , res=>{
 
+    //suppose COURSE array consist of these objects
+    /*
+    const COURSES = [
+        { title: "JavaScript Basics", published: true },
+        { title: "Advanced Python", published: false },
+        { title: "Web Development", published: true }
+    ];
+    */
+     let filteredCourses =[];
+     for(let i=0;i<COURSES.length;i++)
+     {
+        if(COURSES[i].published)
+        {
+            filteredCourses.push(COURSES[i]);
+        }
+     }
+    res.send.json({courses: filteredCourses});
 });
 
 
+
+
+  
 //admin course
 //write logic for the user to see course
-app.post('/user/courses/:courseID' , req , res=>{
-
+app.post('/user/courses/:courseID' , userAuthentication , req , res=>{
+    const courseId = Number(res.params.courseID);
+    const course   = COURSES.find(c=> c.id === courseId && c.published);
+    if(course){
+    req.user.purchasedCourses.push(courseId);
+    res.send.json({messege: 'course purchased successfully'});
+    }
+    else
+    {
+    res.status(404).json({ message: 'Course not found or not available' });   
+    }
 });
 
 //admin course
 //write logic for the user to see purchased  course
-app.get('/user/purchasedCourses' , req , res=>{
+app.get('/user/purchasedCourses' , userAuthentication , req , res=>{
+// const purchasedCourses = COURSES.filter(c => req.user.purchasedCourses.includes(c.id));
+// We need to extract the complete course object from COURSES
+// which have ids which are present in req.user.purchasedCourses    
+var purchasedCourseIds = req.user.purchasedCourses; [1, 4];
+var purchasedCourses = [];
+for (let i = 0; i<COURSES.length; i++) {
+  if (purchasedCourseIds.indexOf(COURSES[i].id) !== -1) {
+    purchasedCourses.push(COURSES[i]);
+  }
+}
+
+res.json({ purchasedCourses });
 
 });
 
