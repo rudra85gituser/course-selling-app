@@ -1,57 +1,63 @@
+//the main problem in this logic is as we refresh array starts again empty
+//data is not getting stored in memory
+
+
+//while sending request every one can inspect and see the request in which admin/user is passing the username and passowrd
+//to solve this we will use token
+//we will hash everything in token
+//thats how authentication works in real world
+
+//in jwt.sign and in jwt.verify the sectre key should be the same
+//only backend server will be able to decode the token 
+
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const app = express();
+app.use(express.json());
 
 let ADMIN=[];
-let USER=[];
+let USERS=[];
 let COURSES=[];
 
+const secretkey = "superS3cr3t1"; // replace this with your own secret key
 
-//admin auth
-const adminAuthentication =(req , res  , next)=>{
-/*
-this is same as text below written in one line
-const username = req.header.username;
-const password = req.header.password;
-*/
-const {username , password} = req.headers;
-// If a matching element is found, .find() will return that element, and it will be stored in the admin variable. If no match is found, admin will be undefined.
-
-//In this version, a is clearly the parameter of the anonymous function passed to .find(). The arrow function syntax (a => ...) is just a shorthand way of writing this.
-
-const admin = ADMIN.find(a=>a.username === username && a.password === password);
-if(admin)
+const generateJwt = (user)=>
 {
-    next();
+  const payload = { username: user.username , };
+  //we are not doing const payload = { username: user.username , password};   because because password can be changed by the user and the username is enough to identify the user
+  return jwt.sign(payload , secretkey, {expiresIn: '1h'});
 }
-else
+
+//jwt auth
+//this will work for both admin auth and the user auth
+const authenticateJwt = (req , res , next)=>
 {
-    res.status(403).json({messege: 'admin authentication failed'});
-}
-};
+    // we are getting token data in authorization section of the headerb part 
+    const authHeader = req.header.authorization;
 
-
-
-
-//user auth
-const userAuthentication =(req , res , next)=>{
-/*
-this is same as text below written in one line
-const username = req.header.username;
-const password = req.header.password;
-*/
-    const {username , password} = req.headers;
-    const user = USER.find(u=>u.username === username && u.password === password);
-    if(user)
+    if(authHeader)
     {
-        req.user = user;  // Add user object to the request
-        req.random1 = "random"; 
-        next();
+        //if there is token present in auth section 
+        //then split the bearer form token string
+        //bearer is also a word present with token passed by the user 
+        // user can also send token also
+        const token  = authHeader.split(' ')[1];
+
+        jwt.verify(token , secretkey , (err , user)=>{
+            if(err)
+            {
+                 return res.sendStauts(403);
+            }
+            req.user = user;
+            next();
+        });
     }
     else
     {
-        res.send.status(403).json({messege: 'user authentication failed'});
+        res.sendStauts(401);
     }
 };
+
 
 
 
@@ -68,7 +74,8 @@ app.post('/admin/signup' , (req , res )=>{
     else
     {
         ADMIN.push(admin);
-        res.send.json({messege: 'admin created successfully'});
+        const token = generateJwt(admin);
+        res.send.json({messege: 'admin created successfully' , token});
     }
 });
 
@@ -77,8 +84,16 @@ app.post('/admin/signup' , (req , res )=>{
 
 //admin login 
 //write logic to log in for admin
-app.post('/admin/login' , userAuthentication , (req , res)=>{
-    res.send.json({messege: 'logged in successfully'});
+app.post('/admin/login' , (req , res)=>{
+    const { username, password } = req.headers;
+    const admin = ADMINS.find(a => a.username === username && a.password === password);
+  
+    if (admin) {
+      const token = generateJwt(admin);
+      res.json({ message: 'Logged in successfully', token });
+    } else {
+      res.status(403).json({ message: 'Admin authentication failed' });
+    }
 });
 
 
@@ -86,12 +101,9 @@ app.post('/admin/login' , userAuthentication , (req , res)=>{
 
 //admin course
 //write logic for the admin to create course
-app.post('/admin/courses' , adminAuthentication ,(req , res)=>{
+app.post('/admin/courses' ,  authenticateJwt ,(req , res)=>{
     const course =req.body;
-    //first way to create id through random variable
-    //second way to create id through variable increment
-    //third way using timestamp
-    course.id =Date.now();//use timestamp for course id
+    course.id = COURSES.length + 1; 
     COURSES.push(course);
     res.send.json({messege: 'course creates successfully' , courseId: course.id});
 });
@@ -102,21 +114,16 @@ app.post('/admin/courses' , adminAuthentication ,(req , res)=>{
 
 //admin course
 //write logic for the admin to edit course
-app.put('/admin/courses/:courseID' , adminAuthentication , (req , res)=>{
+app.put('/admin/courses/:courseID' ,  authenticateJwt , (req , res)=>{
     const courseId = parseInt(req.params.courseID);
-    const course =COURSES.find(a=> a.id === courseId)
-    if(course)
-    {
-        //course.title = req.body.title;
-        //course.price = req.body.price;
-        //or
-        //this will remove the original instance of course available previously
-        Object.assign(course , req.body);
-        res.send.json({messege: 'course updated successfully'});
-    }
-    else
-    {
-        res.send.status(404).json({messege: 'course cannot found'});
+    const courseIndex = COURSES.findIndex(c => c.id === courseId);
+
+    if (courseIndex > -1) {
+      const updatedCourse = { ...COURSES[courseIndex], ...req.body };
+      COURSES[courseIndex] = updatedCourse;
+      res.json({ message: 'Course updated successfully' });
+    } else {
+      res.status(404).json({ message: 'Course not found' });
     }
 });
 
@@ -126,7 +133,7 @@ app.put('/admin/courses/:courseID' , adminAuthentication , (req , res)=>{
 
 //admin course
 //write logic to get all the courses
-app.get('/admin/courses' ,  adminAuthentication ,(req , res)=>{
+app.get('/admin/courses' , authenticateJwt   ,(req , res)=>{
     res.send.json({courses: COURSES});
 });
 
@@ -138,15 +145,15 @@ app.get('/admin/courses' ,  adminAuthentication ,(req , res)=>{
 //user routes/signup
 //logic to signup for user
 app.post('/user/signup' , (req , res)=>{
-    console.log(req.user);
-    console.log(req.random1);
-    const user={
-        username: req.body.username,
-        password: req.body.password,
-        purchasedCourses: []
-    }
-USER.push(user);
-res.send.json({messege: "user created successfully"});
+    const user = req.body;
+  const existingUser = USERS.find(u => u.username === user.username);
+  if (existingUser) {
+    res.status(403).json({ message: 'User already exists' });
+  } else {
+    USERS.push(user);
+    const token = generateJwt(user);
+    res.json({ message: 'User created successfully', token });
+  }
 });
 
 
@@ -156,7 +163,14 @@ res.send.json({messege: "user created successfully"});
 //user login 
 //write logic to log in for user
 app.post('/user/login' , userAuthentication , (req , res)=>{
-    res.send.json({messege: "user logged in successfully"});
+    const { username, password } = req.headers;
+  const user = USERS.find(u => u.username === username && u.password === password);
+  if (user) {
+    const token = generateJwt(user);
+    res.json({ message: 'Logged in successfully', token });
+  } else {
+    res.status(403).json({ message: 'User authentication failed' });
+  }
 });
 
 
@@ -164,32 +178,16 @@ app.post('/user/login' , userAuthentication , (req , res)=>{
 
 //user course
 //write logic for the user to enroll in course
-app.get('/user/courses' , userAuthentication ,  req , res=>{
-
-    //suppose COURSE array consist of these objects
-    /*
-    const COURSES = [
-        { title: "JavaScript Basics", published: true },
-        { title: "Advanced Python", published: false },
-        { title: "Web Development", published: true }
-    ];
-    */
-    let filteredCourses =[];
-    for(let i=0;i<COURSES.length;i++)
-    {
-        if(COURSES[i].published)
-        {
-            filteredCourses.push(COURSES[i]);
-        }
-    }
-    res.send.json({courses: filteredCourses});
+app.get('/users/courses', authenticateJwt, (req, res) => {
+    res.json({ courses: COURSES });
+  });
 //or
 
 //this or the above for loop does the same thing
     //filtered courses
     //COURSES.filter(c=> c.published);
     //res.send.json({COURSES.filter(c=> c.published)});
-});
+
 
 
 
@@ -197,23 +195,25 @@ app.get('/user/courses' , userAuthentication ,  req , res=>{
   
 //admin course
 //write logic for the user to see course
-app.post('/user/courses/:courseID' , userAuthentication , req , res=>{
-    const courseId = Number(res.params.courseID);
-    const course   = COURSES.find(c=> c.id === courseId && c.published);
-    if(course){
-
-    req.user.purchasedCourses.push(courseId);
-    //find the user in the user global array
-    //update the user array
-    //remove the old user  object in the user global array
-    //add the new object to the user global array 
-    res.send.json({messege: 'course purchased successfully'});
+app.post('/users/courses/:courseId', authenticateJwt, (req, res) => {
+    const courseId = parseInt(req.params.courseId);
+    const course = COURSES.find(c => c.id === courseId);
+    if (course) {
+      const user = USERS.find(u => u.username === req.user.username);
+      if (user) {
+        if (!user.purchasedCourses) {
+          user.purchasedCourses = [];
+        }
+        user.purchasedCourses.push(course);
+        res.json({ message: 'Course purchased successfully' });
+      } else {
+        res.status(403).json({ message: 'User not found' });
+      }
+    } else {
+      res.status(404).json({ message: 'Course not found' });
     }
-    else
-    {
-    res.status(404).json({ message: 'Course not found or not available' });   
-    }
-});
+  });
+  
 
 
 
@@ -221,23 +221,15 @@ app.post('/user/courses/:courseID' , userAuthentication , req , res=>{
 
 //admin course
 //write logic for the user to see purchased  course
-app.get('/user/purchasedCourses' , userAuthentication , req , res=>{
-// const purchasedCourses = COURSES.filter(c => req.user.purchasedCourses.includes(c.id));
-//or
-// We need to extract the complete course object from COURSES
-// which have ids which are present in req.user.purchasedCourses    
-var purchasedCourseIds = req.user.purchasedCourses; [1, 4];
-var purchasedCourses = [];
-for (let i = 0; i<COURSES.length; i++) {
-    //indexOf tells the index off the i th object object in the array
-  if (purchasedCourseIds.indexOf(COURSES[i].id) !== -1) {
-    purchasedCourses.push(COURSES[i]);
-  }
-}
-
-res.json({ purchasedCourses });
-
-});
+app.get('/users/purchasedCourses', authenticateJwt, (req, res) => {
+    const user = USERS.find(u => u.username === req.user.username);
+    if (user && user.purchasedCourses) {
+      res.json({ purchasedCourses: user.purchasedCourses });
+    } else {
+      res.status(404).json({ message: 'No courses purchased' });
+    }
+  });
+  
 
 
 
@@ -245,15 +237,3 @@ app.listen(3000 , ()=>{
     console.log("server is listening on the port 3000");
 })
 
-
-
-
-
-//the main problem in this logic is as we refresh array starts again empty
-//data is not getting stored in memory
-
-
-//while sending request every one can inspect and see the request in which admin/user is passing the username and passowrd
-//to solve this we will use token
-//we will hash everything in token
-//thats how authentication works in real world
