@@ -1,0 +1,15 @@
+# Optional npm cache directory
+.npm
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# dotenv environment variables file
+.env
+.env.test
+.env.production
+
+
+# Optional REPL history
+.node_repl_history
